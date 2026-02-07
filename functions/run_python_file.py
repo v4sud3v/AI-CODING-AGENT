@@ -1,29 +1,29 @@
-import subprocess
 import os
-from unittest import result
-
+import subprocess
 
 def run_python_file(working_directory, file_path, args=None):
     try:
-        # 1. Path Validation
+        # 1. Security Check: Ensure path is within the working directory
         abs_working_dir = os.path.abspath(working_directory)
-        abs_file_path = os.path.abspath(file_path)
-        # Check if the file is outside the permitted directory
-        if os.path.commonpath([abs_working_dir]) != os.path.commonpath([abs_working_dir, abs_file_path]):
-            return f'Error: Cannot run "{file_path}" as it is outside the permitted working directory'
+        absolute_file_path = os.path.abspath(os.path.join(abs_working_dir, file_path))
+        
+        if not absolute_file_path.startswith(abs_working_dir):
+            return f'Error: Cannot execute "{file_path}" as it is outside the permitted working directory'
 
-        # 2. Directory Check
-        if not os.path.isfile(abs_file_path):
+        # 2. File Check: Must exist and be a regular file
+        if not os.path.isfile(absolute_file_path):
             return f'Error: "{file_path}" does not exist or is not a regular file'
-        
-        if not abs_file_path.endswith('.py'):
-            return f'Error: "{file_path}" is not a Python file'
-        
-        command = ["python", abs_file_path]
 
+        # 3. Extension Check: Must be a .py file
+        if not file_path.endswith(".py"):
+            return f'Error: "{file_path}" is not a Python file'
+
+        # 4. Build the command
+        command = ["python", absolute_file_path]
         if args:
             command.extend(args)
 
+        # 5. Execute via Subprocess
         result = subprocess.run(
             command,
             cwd=abs_working_dir,
@@ -32,11 +32,24 @@ def run_python_file(working_directory, file_path, args=None):
             timeout=30
         )
 
-        output = []
+        # 6. Build Output String
+        output_parts = []
+        if result.returncode != 0:
+            output_parts.append(f"Process exited with code {result.returncode}")
         
+        if not result.stdout and not result.stderr:
+            output_parts.append("No output produced")
+        else:
+            if result.stdout:
+                output_parts.append(f"STDOUT:\n{result.stdout}")
+            if result.stderr:
+                output_parts.append(f"STDERR:\n{result.stderr}")
 
-        return f'Successfully ran "{file_path}" with arguments: {args if args else "None"}'
+        return "\n".join(output_parts)
+
+    except subprocess.TimeoutExpired:
+        return "Error: Process timed out after 30 seconds"
     except Exception as e:
-        return f"Error: {str(e)}"
-
-run_python_file("calculator", "calculator/main.py")
+        return f"Error: executing Python file: {e}"
+    
+print(run_python_file("calculator", "main.py", ["3 + 5"]))
