@@ -5,7 +5,11 @@ from google import genai
 from google.genai import types
 import argparse
 from functions.get_files_info import schema_get_files_info
+from functions.get_file_content import schema_get_file_content
+from functions.write_file import schema_write_file
+from functions.run_python_file import schema_run_python_file
 from prompts import system_prompt
+from call_function import call_function
 
 def main():
     load_dotenv()
@@ -18,7 +22,12 @@ def main():
     args = parser.parse_args()
 
     available_functions = types.Tool(
-        function_declarations=[schema_get_files_info],
+        function_declarations=[
+            schema_get_files_info,
+            schema_get_file_content,
+            schema_write_file,
+            schema_run_python_file,
+        ],
     )
 
     messages = [
@@ -46,8 +55,33 @@ def main():
 
     
     if response.function_calls:
+        function_results = []  # We'll store the results here for later use
+        
         for function_call in response.function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
+            # 1. Call the function using your helper
+            function_call_result = call_function(function_call, verbose=args.verbose)
+
+            # 2. Validation Ceremony: Check for Parts
+            if not function_call_result.parts:
+                raise Exception("Function call result has no parts")
+            
+            # Grab the first part
+            first_part = function_call_result.parts[0]
+
+            # 3. Validation Ceremony: Check for FunctionResponse
+            if first_part.function_response is None:
+                raise Exception("The part does not contain a function_response")
+
+            # 4. Validation Ceremony: Check for the actual .response field
+            if first_part.function_response.response is None:
+                raise Exception("The function_response does not contain a response field")
+
+            # 5. Success! Add the part to our list
+            function_results.append(first_part)
+
+            # 6. Verbose printing
+            if args.verbose:
+                print(f"-> {first_part.function_response.response}")
     else:
         print(response.text)
 main()
