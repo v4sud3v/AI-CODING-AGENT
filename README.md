@@ -2,7 +2,7 @@
 
 hey! so i built this little AI agent because i've been really interested in agentic AI lately and wanted to understand how it actually works under the hood.
 
-**disclaimer:** this is just a fun project i made for learning. test it at your own risk lol
+**disclaimer:** this is just a fun project i made for learning. test it at your own risk!!!!!(just messed around with agentic ai tbh so it has some safety features that arent like production ready sooooo yeaa) 
 
 ## what is this?
 
