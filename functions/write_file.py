@@ -5,10 +5,10 @@ def write_file(working_directory, file_path, content):
     try:
         # 1. Path Validation
         abs_working_dir = os.path.abspath(working_directory)
-        abs_file_path = os.path.abspath(file_path)
+        abs_file_path = os.path.normpath(os.path.join(abs_working_dir, file_path))
         
         # Check if the file is outside the permitted directory
-        if os.path.commonpath([abs_working_dir]) != os.path.commonpath([abs_working_dir, abs_file_path]):
+        if os.path.commonpath([abs_working_dir, abs_file_path]) != abs_working_dir:
             return f'Error: Cannot write to "{file_path}" as it is outside the permitted working directory'
 
         # 2. Directory Check

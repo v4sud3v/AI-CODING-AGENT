@@ -39,49 +39,63 @@ def main():
         system_instruction=system_prompt,
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents = messages,
-        config = config
-    )
+    for _ in range(20):
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents = messages,
+            config = config
+        )
 
-    if response is None or response.usage_metadata is None:
-        print("No response received from the model.")
-        return
-    
-    if args.verbose:
-        print(f" Prompt Token {response.usage_metadata.prompt_token_count}")
-        print(f" Response Token {response.usage_metadata.candidates_token_count}")
-
-    
-    if response.function_calls:
-        function_results = []  # We'll store the results here for later use
+        if response is None or response.usage_metadata is None:
+            print("No response received from the model.")
+            return
         
-        for function_call in response.function_calls:
-            # 1. Call the function using your helper
-            function_call_result = call_function(function_call, verbose=args.verbose)
+        if args.verbose:
+            print(f" Prompt Token {response.usage_metadata.prompt_token_count}")
+            print(f" Response Token {response.usage_metadata.candidates_token_count}")
 
-            # 2. Validation Ceremony: Check for Parts
-            if not function_call_result.parts:
-                raise Exception("Function call result has no parts")
+        # Append candidates to conversation history
+        if response.candidates:
+            for candidate in response.candidates:
+                messages.append(candidate.content)
+        
+        if response.function_calls:
+            function_results = []  # We'll store the results here for later use
             
-            # Grab the first part
-            first_part = function_call_result.parts[0]
+            for function_call in response.function_calls:
+                # 1. Call the function using your helper
+                function_call_result = call_function(function_call, verbose=args.verbose)
 
-            # 3. Validation Ceremony: Check for FunctionResponse
-            if first_part.function_response is None:
-                raise Exception("The part does not contain a function_response")
+                # 2. Validation Ceremony: Check for Parts
+                if not function_call_result.parts:
+                    raise Exception("Function call result has no parts")
+                
+                # Grab the first part
+                first_part = function_call_result.parts[0]
 
-            # 4. Validation Ceremony: Check for the actual .response field
-            if first_part.function_response.response is None:
-                raise Exception("The function_response does not contain a response field")
+                # 3. Validation Ceremony: Check for FunctionResponse
+                if first_part.function_response is None:
+                    raise Exception("The part does not contain a function_response")
 
-            # 5. Success! Add the part to our list
-            function_results.append(first_part)
+                # 4. Validation Ceremony: Check for the actual .response field
+                if first_part.function_response.response is None:
+                    raise Exception("The function_response does not contain a response field")
 
-            # 6. Verbose printing
-            if args.verbose:
-                print(f"-> {first_part.function_response.response}")
-    else:
-        print(response.text)
+                # 5. Success! Add the part to our list
+                function_results.append(first_part)
+
+                # 6. Verbose printing
+                if args.verbose:
+                    print(f"-> {first_part.function_response.response}")
+            
+            # Append function results to messages
+            messages.append(types.Content(role="user", parts=function_results))
+        else:
+            # No function calls - final response
+            print(response.text)
+            return
+    
+    # Max iterations reached without final response
+    print("Error: Maximum iterations reached without a final response from the model.")
+    sys.exit(1)
 main()
